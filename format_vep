@@ -1,0 +1,63 @@
+#!/bin/python3.6
+
+import subprocess
+import sys
+import gzip
+args = sys.argv
+if len (args) != 4:
+    
+    print (f'\nProgram expects 3 arguments and  {len (args) -1} were given')
+    print ('You can run the program as ...')
+    print ("./format_vep chr start end  --> ./format_vep 25 100 1000\n")
+    exit()
+mychr =sys.argv [1]
+start =sys.argv [2]
+end =sys.argv [3]
+
+###------------------------VEPFILE PATH--------------------------------------------------###
+infile=f"/cluster/work/pausch/vcf_UCD/2022_03/VEP_filtered_dv/{mychr}_vep.vcf.gz"
+###------------------------VEPFILE PATH--------------------------------------------------###
+
+
+
+tabix="/cluster/work/pausch/group_bin/htslib-1.8/tabix "
+outfile=f'{mychr}_{start}_{end}.txt'
+mycommand = f'{tabix} {infile} {mychr}:{start}-{end} '
+output=subprocess.getoutput(mycommand).split ("\n")
+
+if output[0] == '':
+    
+    print (f'\nNo variants were found between {start} & {end} on chr{mychr}!\n')
+    print ('Exiting\n')
+    exit ()
+    
+with gzip.open (infile, "rt") as inf:
+    for line in inf:
+        if 'CSQ' in line:
+            header=line.split("Format:") [1].split ("|")
+            header=[el.rstrip().lstrip() for el in header]
+            break
+
+header = "\t". join (  ['CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER'] + header)
+
+out = open (outfile ,"w")
+out.write (f'{header}\n')
+n=0
+for line in output:
+    n+=1
+    info=line.split ("\t") [0:7]
+    effs=line.split ("\t") [7].split(";") [2].split(",")
+    for eff in effs:
+        eff=eff.split ("|")
+        eff=[el if el!="" else "NA" for el in eff]
+        towrite = "\t". join (info + eff)
+        out.write (f"{towrite}\n")
+out.close ()
+print ('\n\n')
+
+print (f"Variant effects were extracted from {infile}. Modify 'infile' to change the file")        
+print ('\n')
+print (f"Variant effects extracted for  {n:,} variants and written to the file > {outfile}")
+print ('\n\n')
+
+
